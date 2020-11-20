@@ -22,7 +22,8 @@
 -- directly to note information.
 --
 -- unmatched positions play
--- as the space character (32).
+-- as the space character (32)
+-- with no velocity.
 --
 -- v1.0.0 @notester
 -- llllllll.co/t/qfwfq
