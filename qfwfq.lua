@@ -1,7 +1,7 @@
 -- qfwfq
 -- the password is the sequence
 --
--- enc 1 = bpm
+-- enc 1 = bpm (internal)
 -- enc 2 = password index
 -- enc 3 = change character
 -- key 2 = set random password
@@ -23,6 +23,12 @@
 --
 -- unmatched positions play
 -- as the space character (32).
+--
+-- v1.0.0 @notester
+-- llllllll.co/t/TBD
+
+m_util = require 'musicutil'
+engine.name = "PolyPerc"
 
 ASCII = {
   MIN = 32,
@@ -34,8 +40,6 @@ HACK_Y = 37
 POS_Y = 60
 STEP_Y = 40
 STD_W = 8
-
-engine.name = "PolyPerc"
 
 function init()
   screen.font_face(2)
@@ -54,6 +58,7 @@ function init()
   counter = metro.init(take_step, get_time())
 
   math.randomseed(os.time())
+  m = midi.connect()
 
   for i=1, ASCII.MAX - ASCII.MIN do
     glyphs[i] = ASCII.MIN + i - 1
@@ -74,7 +79,9 @@ function enc(e, d)
   end
 
   if e == 1 then
-    params:delta("clock_tempo", d)
+    if params:get('clock_source') == 1 then
+      params:delta("clock_tempo", d)
+    end
   elseif e == 2 then
     pos = util.clamp(pos + d, 1, 16)
   elseif e == 3 then
@@ -134,7 +141,7 @@ function draw_cursor_dot()
 end
 
 function draw_step_dot()
-  local level = pwd[step] == hack.solution[step] and 15 or 5
+  local level = pwd[step] == (hack.solution[step]) and 15 or 5
 
   screen.level(level)
   screen.move(step * 8 - 4, STEP_Y)
@@ -155,7 +162,7 @@ function shift_cypher()
 
   hack.cypher[1] = next_glyph
 
-  next_glyph = next_glyph < #glyphs and next_glyph + 1 or 1
+  next_glyph = (next_glyph < #glyphs) and next_glyph + 1 or 1
   -- next_glyph = math.random(1, #glyphs)
 end
 
@@ -164,21 +171,21 @@ function take_step()
 
   shift_cypher()
 
-  step = step < 16 and step + 1 or 1
+  step = (step < 16) and step + 1 or 1
 
   redraw()
 
   play_note()
 end
 
-function midi_to_hz(note)
-  return (440 / 32) * (2 ^ ((note - 9) / 12))
-end
-
 function play_note()
-  local note = pwd[step] == hack.solution[step] and glyphs[hack.solution[step]] or glyphs[1]
+  local is_solved = pwd[step] == hack.solution[step]
+  local note = (is_solved) and glyphs[hack.solution[step]] or glyphs[1]
+  local velocity = (is_solved) and 127 or 0
 
-  engine.hz(midi_to_hz(note))
+  engine.amp(velocity / 127)
+  engine.hz(m_util.note_num_to_freq(note))
+  m:note_on(note, velocity)
 end
 
 function redraw()
@@ -204,8 +211,8 @@ function redraw()
     end
   
     local i_solved = pwd[i] == hack.solution[i]
-    local hack_glyph = i_solved and glyphs[1] or glyphs[hack.cypher[i]]
-    local level = i_solved and 15 or 5
+    local hack_glyph = (i_solved) and glyphs[1] or glyphs[hack.cypher[i]]
+    local level = (i_solved) and 15 or 5
 
     screen.level(level)
     screen.move(x, BLANK_Y - 4)
