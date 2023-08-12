@@ -29,18 +29,14 @@
 -- llllllll.co/t/qfwfq
 
 m_util = require 'musicutil'
-engine.name = "PolyPerc"
 
-ASCII = {
-  MIN = 32,
-  MAX = 122
-}
-STEPS = 16
-BLANK_Y = 55
-HACK_Y = 37
-POS_Y = 60
-STEP_Y = 40
-STD_W = 8
+include('lib/constants')
+include('lib/devices/crow')
+include('lib/devices/disting')
+include('lib/devices/engine')
+include('lib/devices/jf')
+include('lib/devices/midi')
+include('lib/devices/with')
 
 function init()
   screen.font_face(2)
@@ -59,7 +55,6 @@ function init()
   counter = metro.init(take_step, get_time())
 
   math.randomseed(os.time())
-  m = midi.connect()
 
   for i=1, ASCII.MAX - ASCII.MIN do
     glyphs[i] = ASCII.MIN + i - 1
@@ -183,10 +178,20 @@ function play_note()
   local is_solved = pwd[step] == hack.solution[step]
   local note = (is_solved) and glyphs[hack.solution[step]] or glyphs[1]
   local velocity = (is_solved) and 127 or 0
+  local amp = velocity / 127
+  local hz = m_util.note_num_to_freq(note)
 
-  engine.amp(velocity / 127)
-  engine.hz(m_util.note_num_to_freq(note))
+  if is_solved then
+    crow.send('ii.disting.note_pitch(1, ' .. hz * .003 .. ')')
+    crow.send('ii.disting.note_velocity(1, ' .. amp .. ')')
+  end
+
+  engine.amp(amp)
+  engine.hz(hz)
   m:note_on(note, velocity)
+  crow.send('ii.jf.play_voice(1, ' .. hz * .003 .. ', '.. amp .. ')')
+  crow.send('ii.wsyn.play_note(' .. (note-32)/12 .. ', '.. amp .. ')')
+  crow.send('ii.disting.note_off(1)')
 end
 
 function redraw()
